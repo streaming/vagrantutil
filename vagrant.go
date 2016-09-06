@@ -171,6 +171,37 @@ func (v *Vagrant) Provider() (string, error) {
 	return provider, nil
 }
 
+// SSHPort returns the host port used for SSH connections
+func (v *Vagrant) SSHPort() (string, error) {
+	out, err := v.vagrantCommand().run("port", "--machine-readable", "--guest", "22")
+	if err != nil {
+		return "", err
+	}
+
+	records, err := parseRecords(out)
+	if err != nil {
+		return "", v.error(err)
+	}
+
+	// parseData looks for the typeName at idx 2, and the value at idx 3
+	// the output of this command seems to have an empty string where others
+	// have "default" at idx 1, then an extra string "ui" at idx 2, and then idx 3
+	// and 4 are "info" and the port value respectively.
+	// Work around this by snipping out the first value to get things to align (the
+	// first value appears to be a timestamp).
+	var recs [][]string
+	for _, record := range records {
+		recs = append(recs, record[1:])
+	}
+
+	port, err := parseData(recs, "info")
+	if err != nil {
+		return "", v.error(err)
+	}
+
+	return port, nil
+}
+
 // List returns all available boxes on the system. Under the hood it calls
 // "global-status" and parses the output.
 func (v *Vagrant) List() ([]*Vagrant, error) {
